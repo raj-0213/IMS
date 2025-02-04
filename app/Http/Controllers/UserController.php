@@ -4,6 +4,7 @@
 namespace App\Http\Controllers;
 
 use App\Repositories\UserRepository;
+use App\Interfaces\UserRepositoryInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -11,7 +12,7 @@ class UserController extends Controller
 {
     protected $userRepository;
 
-    public function __construct(UserRepository $userRepository)
+    public function __construct(UserRepositoryInterface $userRepository)
     {
         $this->userRepository = $userRepository;
     }
@@ -23,25 +24,10 @@ class UserController extends Controller
 
     public function show($id)
     {
-        return DB::table('users')->where('id', $id)->get();
+        // return DB::table('users')->where('id', $id)->get();
          
-        // return response()->json($this->userRepository->find($id));
+        return response()->json($this->userRepository->find($id));
     }
-
-    // public function store(Request $request)
-    // {
-    //     $data = $request->validate([
-    //         'name' => 'required|string|max:255',
-    //         'email' => 'required|string|email|max:255|unique:users',
-    //         'phone_no' => 'nullable|string|max:20',
-    //         'address' => 'nullable|string',
-    //         'password' => 'required|string|min:8',
-    //     ]);
-
-    //     $data['password'] = bcrypt($data['password']);
-
-    //     return response()->json($this->userRepository->create($data));
-    // }
 
     public function update(Request $request, $id)
     {

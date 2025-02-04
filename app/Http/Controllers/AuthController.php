@@ -39,9 +39,11 @@ class AuthController extends Controller
         ], 201);
     }
 
-    
+
     public function login(Request $request)
     {
+        // dump($request->all());
+
         $request->validate([
             'email' => 'required|string|email',
             'password' => 'required|string',
@@ -57,13 +59,21 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json(['token' => $token]);
+        
+        return response()->json([
+            'message' => 'User LoggedIn successfully',
+            'user' => $user,
+            'token' => $token
+        ], 201);
     }
 
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
-
-        return response()->json(['message' => 'Logged out successfully']);
+        try {
+            $request->user()->tokens()->delete();
+            return response()->json(['message' => 'Logged out successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'You are not logged in. Please log in first and then try to log out.'], 401);
+        }
     }
 }
