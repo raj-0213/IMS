@@ -9,6 +9,8 @@ use App\Interfaces\DraftProductsRepositoryInterface;
 use App\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\DraftProductsRepository;
 use App\Repositories\CategoryRepository;
+use App\Interfaces\MoleculeRepositoryInterface;
+use App\Repositories\MoleculeRepository;
 
 class RepositoryServiceProvider extends ServiceProvider
 {
@@ -20,6 +22,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, CategoryRepository::class);
         $this->app->bind(DraftProductsRepositoryInterface::class, DraftProductsRepository::class);
+        $this->app->bind(MoleculeRepositoryInterface::class, MoleculeRepository::class);
     }
 
     /**

@@ -13,7 +13,13 @@ return new class extends Migration
     {
         Schema::create('molecules', function (Blueprint $table) {
             $table->id();
+            $table->string('molecule_name', 255);
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
+            $table->softDeletes();
+            $table->foreignId('created_by')->nullable()->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('deleted_by')->nullable()->constrained('users')->onDelete('restrict');
         });
     }
 

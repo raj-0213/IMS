@@ -6,6 +6,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DraftProductsController;
 use App\Http\Controllers\CategoriesController;
+use App\Http\Controllers\MoleculesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,4 +41,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/allcategories', [CategoriesController::class, 'index']);
     Route::post('/category', [CategoriesController::class, 'store']);
     Route::get('/category/{id}', [CategoriesController::class, 'show']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/addmolecule', [MoleculesController::class, 'store']);
+    Route::get('/allmolecules', [MoleculesController::class, 'index']);
+    Route::get('/molecule/{id}', [MoleculesController::class, 'show']);
+    Route::put('/molecule/{id}', [MoleculesController::class, 'update']);
+    Route::delete('/molecule/{id}', [MoleculesController::class, 'destroy']);
 });
