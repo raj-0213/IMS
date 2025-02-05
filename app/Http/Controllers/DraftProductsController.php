@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 
 use App\Interfaces\DraftProductsRepositoryInterface;
+use App\Models\published_products as PublishedProduct;
 use App\Jobs\PublishProductJob;
 use App\Models\molecules;
 use App\Models\Product_Molecule;
@@ -12,6 +13,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use App\Http\Requests\Storedraft_productsRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class DraftProductsController extends Controller
 {
@@ -28,7 +33,7 @@ class DraftProductsController extends Controller
     public function index()
     {
         try {
-            $draftProducts = Cache::remember('draft_products', 60, function () {
+            $draftProducts = Cache::remember('draft_products', 6000, function () {
                 return $this->draftProductsRepository->all();
             });
             return response()->json(['status' => 'success', 'data' => $draftProducts], 200);
@@ -42,71 +47,41 @@ class DraftProductsController extends Controller
      */
     public function create()
     {
-        dd('Reaching here');
+        // dd('Reaching here');
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+
+    public function store(Storedraft_productsRequest $request)
     {
         try {
-            $request->merge(['created_by' => Auth::id()]);
+            $validatedData = $request->validated();
+            $validatedData['created_by'] = Auth::id();
 
-            // // Fetch molecules and concatenate their names
-            // $moleculeIds = $request->input('combination', []);
-            // if (!is_array($moleculeIds)) {
-            //     $moleculeIds = explode(',', $moleculeIds);
-            // }
+            // Process molecule combination
+            $moleculeIds = explode(',', $validatedData['combination'] ?? '');
+            $molecules = Molecules::whereIn('id', $moleculeIds)
+                ->where('is_active', true)
+                ->pluck('molecule_name', 'id')
+                ->toArray();
 
-            // // dump($moleculeIds);
-
-            // $molecules = molecules::whereIn('id', $moleculeIds)
-            // ->where('is_active', 'true')
-            // ->pluck('molecule_name')
-            // ->toArray();
-
-            // // dump($molecules);
-
-            // $combination = implode(' + ', $molecules);
-
-            // // Merge combination into request data
-            // $request->merge(['combination' => $combination]);
-
-            $moleculeIds = $request->input('combination', []);
-            if (!is_array($moleculeIds)) {
-                $moleculeIds = explode(',', $moleculeIds);
+            if (count($molecules) !== count($moleculeIds)) {
+                $inactiveOrMissingIds = array_diff($moleculeIds, array_keys($molecules));
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Some molecules are either inactive or missing in the database',
+                    'inactive_or_missing_ids' => $inactiveOrMissingIds
+                ], 400);
             }
 
-            // Fetch molecules and check if they are active
-            try {
-                $molecules = molecules::whereIn('id', $moleculeIds)
-                    ->where('is_active', 'true')
-                    ->pluck('molecule_name', 'id')
-                    ->toArray();
-
-                // Check if all requested molecules are active and present in the database
-                if (count($molecules) !== count($moleculeIds)) {
-                    $inactiveOrMissingIds = array_diff($moleculeIds, array_keys($molecules));
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Some molecules are either inactive or not present in the database',
-                        'inactive_or_missing_ids' => $inactiveOrMissingIds
-                    ], 400);
-                }
-
-                $combination = implode(' + ', $molecules);
-
-                // Merge combination into request data
-                $request->merge(['combination' => $combination]);
-            } catch (\Exception $e) {
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-            }
+            $validatedData['combination'] = implode(' + ', $molecules);
 
             // Create draft product
-            $draftProduct = $this->draftProductsRepository->create($request->all());
+            $draftProduct = $this->draftProductsRepository->create($validatedData);
 
-            // Create entries in product_molecules table
+            // Insert product-molecule relationships
             foreach ($moleculeIds as $moleculeId) {
                 Product_Molecule::create([
                     'product_id' => $draftProduct->id,
@@ -114,13 +89,15 @@ class DraftProductsController extends Controller
                 ]);
             }
 
-            Cache::put('draft_product_' . $draftProduct->id, $draftProduct, 60);
+            // Cache the product for faster access
+            Cache::put('draft_product_' . $draftProduct->id, $draftProduct, 6000);
 
             return response()->json(['status' => 'success', 'data' => $draftProduct], 201);
-        } catch (\Exception $e) {
+        } catch (ValidationException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
 
     /**
      * Display the specified resource.
@@ -152,25 +129,6 @@ class DraftProductsController extends Controller
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
-        // try {
-        //         $cacheKey = "draft_product_{$id}";
-
-        //         $draftProduct = Cache::remember($cacheKey, 60, function () use ($id) {
-        //             return $this->draftProductsRepository->find($id);
-        //         });
-
-        //         if (!$draftProduct) {
-        //             return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
-        //         }
-
-        //     // $draftProduct = $this->draftProductsRepository->find($id);
-        //     // if (!$draftProduct) {
-        //     //     return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
-        //     // }
-        //     return response()->json(['status' => 'success', 'data' => $draftProduct], 200);
-        // } catch (\Exception $e) {
-        //     return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        // }
     }
 
     /**
@@ -184,87 +142,195 @@ class DraftProductsController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id)
-    {
-        try {
-            $draftProduct = $this->draftProductsRepository->find($id);
-
-            if (!$draftProduct) {
-                return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
-            }
-
-            // Fetch molecule names
-            $moleculeIds = explode(',', $request->combination);
-            $molecules = molecules::whereIn('id', $moleculeIds)->pluck('molecule_name')->toArray();
-            // dump($molecules);
-            $combination = implode(' + ', $molecules);
-
-            // Update combination
-            $draftProduct->combination = $combination;
-
-            // Check if product status is changed to 'Published'
-            if ($draftProduct->product_status === 'Draft' && $request->product_status === 'Published') {
-                // Generate Unique WS Code
-                $wsCode = rand(100000, 999999);
-                $draftProduct->ws_code = $wsCode;
-                $draftProduct->product_status = 'Published';
-                $createdBy = Auth::id();
-                $draftProduct->published_at = now();
-                $draftProduct->published_by = Auth::id();
+     public function update(Request $request, $id)
+     {
+         try {
+ 
+             // $validated = $request->validate([
+                 // 'name' => 'required|string|max:255',
+                 // 'sales_price' => 'required|numeric|min:0',
+                 // 'mrp' => 'required|numeric|min:0',
+                 // 'manufacturer_name' => 'required|string|max:255',
+                 // 'is_banned' => 'required|boolean',
+                 // 'is_active' => 'required|boolean',
+                 // 'is_discontinued' => 'required|boolean',
+                 // 'is_assured' => 'required|boolean',
+                 // 'is_refridged' => 'required|boolean',
+                 // 'category_id' => 'required|integer|exists:categories,id', 
+                 // 'product_status' => 'nullable|string|in:Draft,Unpublished,Published',
+                 // 'combination' => 'nullable|string', 
+             // ]);
+ 
+             $draftProduct = $this->draftProductsRepository->find($id);
+ 
+             if (!$draftProduct) {
+                 return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
+             }
+ 
+             // Fetch molecule names
+             $moleculeIds = explode(',', $request->combination);
+             $molecules = molecules::whereIn('id', $moleculeIds)->pluck('molecule_name')->toArray();
+             // dump($molecules);
+             $combination = implode(' + ', $molecules);
+ 
+             // Update combination
+             $draftProduct->combination = $combination;
+ 
+             // Check if product status is changed to 'Published'
+             if ($request->has('product_status') && ($draftProduct->product_status === 'Unpublished') && $request->product_status === 'Published') {
+                $updatedBy = Auth::id();
+                // dd($draftProduct,$createdBy,$combination);
+                // Log::info('Processing Sent');
+                $draftProduct->product_status = $request->product_status;
+                $draftProduct->fill([
+                    'name' => $request['name'],
+                    'sales_price' => $request['sales_price'],
+                    'mrp' => $request['mrp'],
+                    'manufacturer_name' => $request['manufacturer_name'],
+                    'is_banned' => $request['is_banned'],
+                    'is_active' => $request['is_active'],
+                    'is_discontinued' => $request['is_discontinued'],
+                    'is_assured' => $request['is_assured'],
+                    'is_refridged' => $request['is_refridged'],
+                    'category_id' => $request['category_id'],
+                ]);
                 $draftProduct->save();
-
-                // Dispatch job and pass molecule_name
+                PublishProductJob::dispatch($draftProduct, $updatedBy, $combination);
+                return response()->json(['status' => 'success', 'message' => 'Updated Product Publish is in progress'], 200);
+            } else if ($request->has('product_status') && ($draftProduct->product_status === 'Draft' || $draftProduct->product_status === 'Unpublished') && $request->product_status === 'Published') {
+                $wsCode = rand(100000, 999999);
+                $createdBy = Auth::id();
+                // dd($draftProduct,$createdBy,$combination);
+                // Log::info('Processing Sent');
+                $draftProduct->ws_code = $wsCode;
+                $draftProduct->product_status = $request->product_status;
+                $draftProduct->fill([
+                    'name' => $request['name'],
+                    'sales_price' => $request['sales_price'],
+                    'mrp' => $request['mrp'],
+                    'manufacturer_name' => $request['manufacturer_name'],
+                    'is_banned' => $request['is_banned'],
+                    'is_active' => $request['is_active'],
+                    'is_discontinued' => $request['is_discontinued'],
+                    'is_assured' => $request['is_assured'],
+                    'is_refridged' => $request['is_refridged'],
+                    'category_id' => $request['category_id'],
+                ]);
+                $draftProduct->save();
                 PublishProductJob::dispatch($draftProduct, $createdBy, $combination);
-
-
                 return response()->json(['status' => 'success', 'message' => 'Product publishing is in progress'], 200);
+            } else if ($draftProduct->product_status === 'Published' || $draftProduct->product_status === 'Unpublished') {
+                $draftProduct->product_status = "Unpublished";
+                $draftProduct->fill([
+                    'name' => $request['name'],
+                    'sales_price' => $request['sales_price'],
+                    'mrp' => $request['mrp'],
+                    'manufacturer_name' => $request['manufacturer_name'],
+                    'is_banned' => $request['is_banned'],
+                    'is_active' => $request['is_active'],
+                    'is_discontinued' => $request['is_discontinued'],
+                    'is_assured' => $request['is_assured'],
+                    'is_refridged' => $request['is_refridged'],
+                    'category_id' => $request['category_id'],
+                ]);
+                $draftProduct->save();
             }
-
-            // If status is not changing to 'Published', just update the product
-            $draftProduct->update($request->all());
-
+ 
+             // If status is not changing to 'Published', just update the product
+             $draftProduct->update($request->all());
+            //  Cache::forget('draft_products');
+            //  Cache::forget('draft_product_' . $id);   
             return response()->json(['status' => 'success', 'data' => $draftProduct], 200);
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
-    }
+         } catch (\Exception $e) {
+             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+         }
+     }
 
     // public function update(Request $request, $id)
     // {
     //     try {
+
+    //         // $validated = $request->validate([
+    //             // 'name' => 'required|string|max:255',
+    //             // 'sales_price' => 'required|numeric|min:0',
+    //             // 'mrp' => 'required|numeric|min:0',
+    //             // 'manufacturer_name' => 'required|string|max:255',
+    //             // 'is_banned' => 'required|boolean',
+    //             // 'is_active' => 'required|boolean',
+    //             // 'is_discontinued' => 'required|boolean',
+    //             // 'is_assured' => 'required|boolean',
+    //             // 'is_refridged' => 'required|boolean',
+    //             // 'category_id' => 'required|integer|exists:categories,id', 
+    //             // 'product_status' => 'nullable|string|in:Draft,Unpublished,Published',
+    //             // 'combination' => 'nullable|string', 
+    //         // ]);
+
     //         $draftProduct = $this->draftProductsRepository->find($id);
 
     //         if (!$draftProduct) {
     //             return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
     //         }
 
+    //         // Fetch molecule names
+    //         $moleculeIds = explode(',', $request->combination);
+    //         $molecules = molecules::whereIn('id', $moleculeIds)->pluck('molecule_name')->toArray();
+    //         // dump($molecules);
+    //         $combination = implode(' + ', $molecules);
+
+    //         // Update combination
+    //         $draftProduct->combination = $combination;
+
     //         // Check if product status is changed to 'Published'
-    //         if ($draftProduct->product_status === 'Draft' && $request->product_status === 'Published') {
+    //         if ($request->has('product_status')&&($draftProduct->product_status === 'Draft'|| $draftProduct->product_status === 'Unpublished') && $request->product_status === 'Published' ) {
     //             // Generate Unique WS Code
     //             $wsCode = rand(100000, 999999);
     //             $draftProduct->ws_code = $wsCode;
+    //             $draftProduct->product_status = $request->product_status;
+    //             $createdBy = Auth::id();
+    //             $draftProduct->published_at = now();
+    //             $draftProduct->published_by = Auth::id();
+    //             $draftProduct->fill([
+    //                 'name' => $request['name'],
+    //                 'sales_price' => $request['sales_price'],
+    //                 'mrp' => $request['mrp'],
+    //                 'manufacturer_name' => $request['manufacturer_name'],
+    //                 'is_banned' => $request['is_banned'],
+    //                 'is_active' => $request['is_active'],
+    //                 'is_discontinued' => $request['is_discontinued'],
+    //                 'is_assured' => $request['is_assured'],
+    //                 'is_refridged' => $request['is_refridged'],
+    //                 'category_id' => $request['category_id'],
+    //             ]);
     //             $draftProduct->save();
 
-    //             // Dispatch job to queue
-    //             PublishProductJob::dispatch($draftProduct, auth()->id(), $request->molecule_names);
-    //             Log::info('Product publishing');
+    //             // Dispatch job and pass molecule_name
+    //             PublishProductJob::dispatch($draftProduct, $createdBy, $combination);
 
     //             return response()->json(['status' => 'success', 'message' => 'Product publishing is in progress'], 200);
     //         }
 
-    //         // If status is not changing from 'Draft' to 'Published', just update the draft product
-    //         $draftProduct->update($request->all());
-
-    //         // Create entries in product_molecules table
-    //         $moleculeIds = array_map('intval', explode(',', $request->molecule_ids));
-    //         foreach ($moleculeIds as $moleculeId) {
-    //             Product_Molecule::create([
-    //                 'product_id' => $draftProduct->id,
-    //                 'molecule_id' => $moleculeId,
+    //         else if($draftProduct->product_status === 'Published' ){
+    //             $draftProduct->product_status = "Unpublished";
+    //             $draftProduct->fill([
+    //                 'name' => $request['name'],
+    //                 'sales_price' => $request['sales_price'],
+    //                 'mrp' => $request['mrp'],
+    //                 'manufacturer_name' => $request['manufacturer_name'],
+    //                 'is_banned' => $request['is_banned'],
+    //                 'is_active' => $request['is_active'],
+    //                 'is_discontinued' => $request['is_discontinued'],
+    //                 'is_assured' => $request['is_assured'],
+    //                 'is_refridged' => $request['is_refridged'],
+    //                 'category_id' => $request['category_id'],
     //             ]);
+    //             $draftProduct->save();
+    //             return response()->json(['status' => 'success', 'message' => 'Product unpublished successfully'], 200);
     //         }
 
-    //         return response()->json(['status' => 'success', 'data' => $draftProduct], 201);
+    //         // If status is not changing to 'Published', just update the product
+    //         $draftProduct->update($request->all());
+
+    //         return response()->json(['status' => 'success', 'data' => $draftProduct], 200);
     //     } catch (\Exception $e) {
     //         return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
     //     }

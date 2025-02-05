@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class Storedraft_productsRequest extends FormRequest
 {
@@ -22,21 +24,28 @@ class Storedraft_productsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'sales_price' => 'required|numeric',
-            'mrp' => 'required|numeric',
-            'manufacturer_name' => 'nullable|string|max:255',
-            'is_banned' => 'required|boolean',
-            'is_discontinued' => 'required|boolean',
-            'is_assured' => 'required|boolean',
-            'is_refridged' => 'required|boolean',
-            'category_id' => 'required|exists:categories,id',
-            'product_status' => 'required|in:Draft,Published,Unpublished',
-            'ws_code' => 'nullable|integer',
-            'combination' => 'nullable|array',
-            'combination.*' => 'string',
-            'published_by' => 'nullable|exists:users,id',
-            'published_at' => 'nullable|date'
+            'name' => 'required|string|unique:draft_products,name|max:255',
+            'sales_price' => 'required|numeric|min:0',
+            'mrp' => 'required|numeric|min:0',
+            'manufacturer_name' => 'required|string|max:255',
+            'is_banned' => 'boolean',
+            'is_discontinued' => 'boolean',
+            'is_assured' => 'boolean',
+            'is_refrigerated' => 'boolean',
+            'category_id' => 'required|integer|exists:categories,id',
+            'product_status' => 'required|string|in:Draft,Published,Unpublished',
+            'ws_code' => 'nullable|string|max:50',
+            'combination' => 'nullable|string',
+            'deleted_by' => 'nullable|integer|exists:users,id',
         ];
+    }
+
+    protected function failedValidation(Validator $validator)
+    {
+        throw new ValidationException($validator, response()->json([
+            'success' => false,
+            'message' => 'Validation errors',
+            'errors' => $validator->errors()
+        ], 422));
     }
 }
