@@ -11,7 +11,7 @@ class Storedraft_productsRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +22,21 @@ class Storedraft_productsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'name' => 'required|string|max:255',
+            'sales_price' => 'required|numeric',
+            'mrp' => 'required|numeric',
+            'manufacturer_name' => 'nullable|string|max:255',
+            'is_banned' => 'required|boolean',
+            'is_discontinued' => 'required|boolean',
+            'is_assured' => 'required|boolean',
+            'is_refridged' => 'required|boolean',
+            'category_id' => 'required|exists:categories,id',
+            'product_status' => 'required|in:Draft,Published,Unpublished',
+            'ws_code' => 'nullable|integer',
+            'combination' => 'nullable|array',
+            'combination.*' => 'string',
+            'published_by' => 'nullable|exists:users,id',
+            'published_at' => 'nullable|date'
         ];
     }
 }

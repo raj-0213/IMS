@@ -4,15 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-
-class draft_products extends Model
+class Published_products extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
-    protected $table = 'draft_products';
+    protected $table = 'published_products';
 
     protected $fillable = [
+        'ws_code',
         'name',
         'sales_price',
         'mrp',
@@ -20,22 +21,19 @@ class draft_products extends Model
         'is_banned',
         'is_discontinued',
         'is_assured',
+        'is_active',
         'is_refrigerated',
         'created_by',
         'updated_by',
         'deleted_by',
         'category_id',
-        'product_status',
-        'ws_code',
         'combination',
-        'published_by',
     ];
 
     protected $dates = [
         'created_at',
         'updated_at',
         'deleted_at',
-        'published_at',
     ];
 
     public function createdBy()
@@ -51,10 +49,5 @@ class draft_products extends Model
     public function deletedBy()
     {
         return $this->belongsTo(User::class, 'deleted_by');
-    }
-
-    public function publishedBy()
-    {
-        return $this->belongsTo(User::class, 'published_by');
     }
 }
