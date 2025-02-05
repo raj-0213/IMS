@@ -17,6 +17,7 @@ return new class extends Migration
             $table->decimal('sales_price', 10, 2);
             $table->decimal('mrp', 10, 2);
             $table->string('manufacturer_name', 255);
+            $table->boolean('is_active')->default(true);
             $table->boolean('is_banned')->default(false);
             $table->boolean('is_discontinued')->default(false);
             $table->boolean('is_assured')->default(false);

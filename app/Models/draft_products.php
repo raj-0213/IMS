@@ -17,6 +17,7 @@ class draft_products extends Model
         'sales_price',
         'mrp',
         'manufacturer_name',
+        'is_active',
         'is_banned',
         'is_discontinued',
         'is_assured',

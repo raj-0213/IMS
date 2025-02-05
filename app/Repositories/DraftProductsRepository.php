@@ -34,9 +34,13 @@ class DraftProductsRepository implements DraftProductsRepositoryInterface
 
     public function delete($id)
     {
+        // dump($id);
+
         $draftProduct = draft_products::find($id);
+
         if ($draftProduct) {
-            $draftProduct->delete();
+            $draftProduct->is_active = false;
+            $draftProduct->save();
             return $draftProduct;
         }
         return null;

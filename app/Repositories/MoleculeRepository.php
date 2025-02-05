@@ -38,16 +38,17 @@ class MoleculeRepository implements MoleculeRepositoryInterface
     {
         $molecule = molecules::find($id);
 
-        // dump($molecule);
+        if ($molecule->deleted_at) {
+            return response()->json(['message' => 'This molecule has already been deleted.'], 400);
+        }
 
+        $molecule->update([
+            'deleted_by' => Auth::id(),
+            'is_active' => false
+        ]);
 
-        // dump($molecule['deleted_by']);
+        $molecule->delete();
 
-        $molecule->update(['deleted_by' => Auth::id()]);
-
-        // dump($molecule->delete());
-
-        return $molecule->delete();
-        // return $molecule;
+        return response()->json(['message' => 'Molecule deleted successfully.'], 200);
     }
 }

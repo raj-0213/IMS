@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\Storedraft_productsRequest;
-use App\Http\Requests\Updatedraft_productsRequest;
+
 use App\Interfaces\DraftProductsRepositoryInterface;
 use App\Jobs\PublishProductJob;
-use App\Models\draft_products;
 use App\Models\molecules;
 use App\Models\Product_Molecule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class DraftProductsController extends Controller
 {
@@ -29,7 +28,9 @@ class DraftProductsController extends Controller
     public function index()
     {
         try {
-            $draftProducts = $this->draftProductsRepository->all();
+            $draftProducts = Cache::remember('draft_products', 60, function () {
+                return $this->draftProductsRepository->all();
+            });
             return response()->json(['status' => 'success', 'data' => $draftProducts], 200);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
@@ -52,19 +53,55 @@ class DraftProductsController extends Controller
         try {
             $request->merge(['created_by' => Auth::id()]);
 
-            // Fetch molecules and concatenate their names
+            // // Fetch molecules and concatenate their names
+            // $moleculeIds = $request->input('combination', []);
+            // if (!is_array($moleculeIds)) {
+            //     $moleculeIds = explode(',', $moleculeIds);
+            // }
+
+            // // dump($moleculeIds);
+
+            // $molecules = molecules::whereIn('id', $moleculeIds)
+            // ->where('is_active', 'true')
+            // ->pluck('molecule_name')
+            // ->toArray();
+
+            // // dump($molecules);
+
+            // $combination = implode(' + ', $molecules);
+
+            // // Merge combination into request data
+            // $request->merge(['combination' => $combination]);
+
             $moleculeIds = $request->input('combination', []);
             if (!is_array($moleculeIds)) {
                 $moleculeIds = explode(',', $moleculeIds);
             }
 
-            // dump($moleculeIds);
+            // Fetch molecules and check if they are active
+            try {
+                $molecules = molecules::whereIn('id', $moleculeIds)
+                    ->where('is_active', 'true')
+                    ->pluck('molecule_name', 'id')
+                    ->toArray();
 
-            $molecules = molecules::whereIn('id', $moleculeIds)->pluck('molecule_name')->toArray();
-            $combination = implode(' + ', $molecules);
+                // Check if all requested molecules are active and present in the database
+                if (count($molecules) !== count($moleculeIds)) {
+                    $inactiveOrMissingIds = array_diff($moleculeIds, array_keys($molecules));
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Some molecules are either inactive or not present in the database',
+                        'inactive_or_missing_ids' => $inactiveOrMissingIds
+                    ], 400);
+                }
 
-            // Merge combination into request data
-            $request->merge(['combination' => $combination]);
+                $combination = implode(' + ', $molecules);
+
+                // Merge combination into request data
+                $request->merge(['combination' => $combination]);
+            } catch (\Exception $e) {
+                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            }
 
             // Create draft product
             $draftProduct = $this->draftProductsRepository->create($request->all());
@@ -76,6 +113,8 @@ class DraftProductsController extends Controller
                     'molecule_id' => $moleculeId,
                 ]);
             }
+
+            Cache::put('draft_product_' . $draftProduct->id, $draftProduct, 60);
 
             return response()->json(['status' => 'success', 'data' => $draftProduct], 201);
         } catch (\Exception $e) {
@@ -89,14 +128,49 @@ class DraftProductsController extends Controller
     public function show($id)
     {
         try {
-            $draftProduct = $this->draftProductsRepository->find($id);
+            $cacheKey = "draft_product_{$id}";
+
+            if (Cache::has($cacheKey)) {
+                Log::info("Cache hit for {$cacheKey}");
+            } else {
+                Log::info("Cache miss for {$cacheKey}");
+            }
+
+            $draftProduct = Cache::remember($cacheKey, 6000, function () use ($id) {
+                Log::info("Fetching draft product from repository for ID: {$id}");
+                $product = $this->draftProductsRepository->find($id);
+                Log::info("Fetched draft product: " . json_encode($product));
+                // return $this->draftProductsRepository->find($id);
+                return $product;
+            });
+
             if (!$draftProduct) {
                 return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
             }
+
             return response()->json(['status' => 'success', 'data' => $draftProduct], 200);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+        // try {
+        //         $cacheKey = "draft_product_{$id}";
+
+        //         $draftProduct = Cache::remember($cacheKey, 60, function () use ($id) {
+        //             return $this->draftProductsRepository->find($id);
+        //         });
+
+        //         if (!$draftProduct) {
+        //             return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
+        //         }
+
+        //     // $draftProduct = $this->draftProductsRepository->find($id);
+        //     // if (!$draftProduct) {
+        //     //     return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
+        //     // }
+        //     return response()->json(['status' => 'success', 'data' => $draftProduct], 200);
+        // } catch (\Exception $e) {
+        //     return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        // }
     }
 
     /**
@@ -133,13 +207,15 @@ class DraftProductsController extends Controller
                 // Generate Unique WS Code
                 $wsCode = rand(100000, 999999);
                 $draftProduct->ws_code = $wsCode;
-
+                $draftProduct->product_status = 'Published';
                 $createdBy = Auth::id();
+                $draftProduct->published_at = now();
+                $draftProduct->published_by = Auth::id();
                 $draftProduct->save();
 
                 // Dispatch job and pass molecule_name
                 PublishProductJob::dispatch($draftProduct, $createdBy, $combination);
-                
+
 
                 return response()->json(['status' => 'success', 'message' => 'Product publishing is in progress'], 200);
             }
@@ -200,7 +276,13 @@ class DraftProductsController extends Controller
     public function destroy($id): JsonResponse
     {
         try {
+
+            // dump($id);
+
             $draftProduct = $this->draftProductsRepository->delete($id);
+
+            // dump($draftProduct);
+
             if (!$draftProduct) {
                 return response()->json(['status' => 'error', 'message' => 'Draft product not found'], 404);
             }

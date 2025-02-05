@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DraftProductsController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\MoleculesController;
+use App\Http\Controllers\PublishedProductsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,6 +57,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [DraftProductsController::class, 'show']);
         Route::put('/{id}', [DraftProductsController::class, 'update']);
         Route::delete('/{id}', [DraftProductsController::class, 'destroy']);
+    });
+
+
+    Route::prefix('published')->group(function () {
+        Route::get('/', [PublishedProductsController::class, 'index']);
+        Route::get('/{id}', [PublishedProductsController::class, 'show']);
     });
 });
 

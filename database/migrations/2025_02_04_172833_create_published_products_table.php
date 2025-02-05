@@ -17,7 +17,7 @@ class CreatePublishedProductsTable extends Migration
             $table->string('manufacturer_name');
             $table->boolean('is_banned')->default(false);
             $table->boolean('is_discontinued')->default(false);
-            $table->boolean('is_active')->default(false);
+            $table->boolean('is_active')->default(true);
             $table->boolean('is_assured')->default(false);;
             $table->boolean('is_refrigerated')->default(false);;
             $table->foreignId('category_id')->constrained('categories');

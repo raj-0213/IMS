@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Interfaces\MoleculeRepositoryInterface;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,8 +23,7 @@ class MoleculesController extends Controller
             $molecules = $this->moleculeRepository->getAllMolecules();
             return response()->json($molecules);
         } catch (\Exception $e) {
-            Log::error('Error fetching molecules: ');
-            return response()->json(['error' => 'Error fetching molecules' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json(['error' => 'Error fetching molecules'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -42,7 +40,6 @@ class MoleculesController extends Controller
             $validatedData['created_by'] = Auth::id();
             $validatedData['updated_by'] = Auth::id();
         } catch (\Exception $e) {
-            Log::error('Validation or assignment error: ' . $e->getMessage());
             return response()->json(['error' => 'Validation or assignment error'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -52,7 +49,6 @@ class MoleculesController extends Controller
             $molecule = $this->moleculeRepository->createMolecule($validatedData);
             return response()->json($molecule, Response::HTTP_CREATED);
         } catch (\Exception $e) {
-            Log::error('Error creating molecule: ' . $e->getMessage());
             return response()->json(['error' => 'Error creating molecule'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -69,7 +65,6 @@ class MoleculesController extends Controller
 
             return response()->json($molecule);
         } catch (\Exception $e) {
-            Log::error('Error fetching molecule: ' . $e->getMessage());
             return response()->json(['error' => 'Error fetching molecule'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -87,7 +82,6 @@ class MoleculesController extends Controller
             $molecule = $this->moleculeRepository->updateMolecule($id, $validatedData);
             return response()->json($molecule);
         } catch (\Exception $e) {
-            Log::error('Error updating molecule: ' . $e->getMessage());
             return response()->json(['error' => 'Error updating molecule'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -107,8 +101,7 @@ class MoleculesController extends Controller
                 200
             );
         } catch (\Exception $e) {
-            Log::error('Error deleting molecule: ' . $e->getMessage());
-            return response()->json(['error' => 'Error deleting molecule'. $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json(['error' => 'Error deleting molecule'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

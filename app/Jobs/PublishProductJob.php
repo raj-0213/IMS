@@ -25,7 +25,7 @@ class PublishProductJob implements ShouldQueue
         $this->createdBy = $createdBy;
         $this->moleculeNames = $moleculeNames;
     }
-
+    
     public function handle()
     {
         Log::info('Publishing product with ID: ' . $this->moleculeNames);
