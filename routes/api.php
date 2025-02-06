@@ -27,42 +27,43 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('auth')->group(function () {
-        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('logout', [AuthController::class, 'logout']);
     });
 
     Route::prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::get('/{id}', [UserController::class, 'show']);
-        Route::put('/{id}', [UserController::class, 'update']);
-        Route::delete('/{id}', [UserController::class, 'destroy']);
+        Route::get('', [UserController::class, 'index']);
+        Route::get('{id}', [UserController::class, 'show']);
+        Route::put('{id}', [UserController::class, 'update']);
+        Route::delete('{id}', [UserController::class, 'destroy']);
     });
 
     Route::prefix('categories')->group(function () {
-        Route::get('/', [CategoriesController::class, 'index']);
-        Route::post('/', [CategoriesController::class, 'store']);
-        Route::get('/{id}', [CategoriesController::class, 'show']);
+        Route::get('', [CategoriesController::class, 'index']);
+        Route::post('', [CategoriesController::class, 'store']);
+        Route::get('{id}', [CategoriesController::class, 'show']);
     });
 
     Route::prefix('molecules')->group(function () {
-        Route::post('/', [MoleculesController::class, 'store']);
-        Route::get('/', [MoleculesController::class, 'index']);
-        Route::get('/{id}', [MoleculesController::class, 'show']);
-        Route::put('/{id}', [MoleculesController::class, 'update']);
-        Route::delete('/{id}', [MoleculesController::class, 'destroy']);
+        Route::post('', [MoleculesController::class, 'store']);
+        Route::get('', [MoleculesController::class, 'index']);
+        Route::get('{id}', [MoleculesController::class, 'show']);
+        Route::put('{id}', [MoleculesController::class, 'update']);
+        Route::delete('{id}', [MoleculesController::class, 'destroy']);
     });
 
     Route::prefix('drafts')->group(function () {
-        Route::get('/', [DraftProductsController::class, 'index']);
-        Route::post('/', [DraftProductsController::class, 'store']);
-        Route::get('/{id}', [DraftProductsController::class, 'show']);
-        Route::put('/{id}', [DraftProductsController::class, 'update']);
-        Route::delete('/{id}', [DraftProductsController::class, 'destroy']);
+        Route::get('', [DraftProductsController::class, 'index']);
+        Route::post('', [DraftProductsController::class, 'store']);
+        Route::get('{id}', [DraftProductsController::class, 'show']);
+        Route::put('{id}', [DraftProductsController::class, 'update']);
+        Route::delete('{id}', [DraftProductsController::class, 'destroy']);
     });
 
 
     Route::prefix('published')->group(function () {
-        Route::get('/', [PublishedProductsController::class, 'index']);
-        Route::get('/{id}', [PublishedProductsController::class, 'show']);
+        Route::get('search',[PublishedProductsController::class,'search']);
+        Route::get('', [PublishedProductsController::class, 'index']);
+        Route::get('{id}', [PublishedProductsController::class, 'show']);
     });
 });
 

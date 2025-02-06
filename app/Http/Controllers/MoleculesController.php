@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MoleculeRequest;
 use App\Interfaces\MoleculeRepositoryInterface;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,16 +28,12 @@ class MoleculesController extends Controller
         }
     }
 
-    public function store(Request $request)
+    public function store(MoleculeRequest $request)
     {
         // dump($request->all()); 
 
         try {
-            $validatedData = $request->validate([
-                'molecule_name' => 'required|string|max:255',
-                'is_active' => 'boolean'
-            ]);
-
+            $validatedData = $request->validated();
             $validatedData['created_by'] = Auth::id();
             $validatedData['updated_by'] = Auth::id();
         } catch (\Exception $e) {
@@ -69,12 +66,9 @@ class MoleculesController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
+    public function update(MoleculeRequest $request, $id)
     {
-        $validatedData = $request->validate([
-            'molecule_name' => 'sometimes|required|string|max:255',
-            'is_active' => 'boolean',
-        ]);
+        $validatedData = $request->validated();
 
         $validatedData['updated_by'] = Auth::id();
 

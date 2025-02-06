@@ -27,7 +27,7 @@ class DraftProductsController extends Controller
         $this->draftProductsRepository = $draftProductsRepository;
     }
 
-    /**
+    /**                
      * Display a listing of the resource.
      */
     public function index()
@@ -94,7 +94,9 @@ class DraftProductsController extends Controller
 
             return response()->json(['status' => 'success', 'data' => $draftProduct], 201);
         } catch (ValidationException $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        } catch(\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Internal Server Error'], 500);
         }
     }
 
@@ -358,3 +360,4 @@ class DraftProductsController extends Controller
         }
     }
 }
+    

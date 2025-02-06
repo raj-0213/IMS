@@ -7,6 +7,9 @@ use App\Interfaces\CategoryRepositoryInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorecategoriesRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class CategoriesController extends Controller
 {
@@ -40,12 +43,9 @@ class CategoriesController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StorecategoriesRequest $request)
     {
-        $validated = $request->validate([
-            'category_name' => 'required|string|max:255',
-            'is_deleted' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         if (!in_array($validated['category_name'], ['Branded', 'Generics'])) {
             return response()->json(['error' => 'Only "Branded" and "Generics" categories are allowed'], 400);
@@ -57,7 +57,10 @@ class CategoriesController extends Controller
         try {
             $category = $this->categoryRepository->create($validated);
             return response()->json(['data' => $category], 201);
-        } catch (\Exception $e) {
+        } catch (ValidationException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
+        catch (\Exception $e) {
             return response()->json(['error' => 'Failed to create category'], 500);
         }
     }

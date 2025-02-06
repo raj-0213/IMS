@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class StorecategoriesRequest extends FormRequest
 {
@@ -22,7 +24,17 @@ class StorecategoriesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'category_name' => 'required|string|max:255',
+            'is_deleted' => 'boolean'
         ];
+    }
+
+    protected function failedValidation(Validator $validator)
+    {
+        throw new ValidationException($validator, response()->json([
+            'success' => false,
+            'message' => 'Validation errors',
+            'errors' => $validator->errors()
+        ], 422));
     }
 }

@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\Searchable;
 
 class Published_products extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes,Searchable;
 
     protected $table = 'published_products';
 
@@ -35,6 +36,20 @@ class Published_products extends Model
         'updated_at',
         'deleted_at',
     ];
+
+    public function SearchableAs()
+    {
+        return 'published_products_index';
+    }
+
+    public function toSearchableArray(): array
+    {
+        $array = [
+            // "name" => $this->name,
+            // "ws_code" => $this->ws_code
+        ];
+        return $array;
+    }
 
     public function createdBy()
     {

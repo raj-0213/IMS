@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Published_products;
+use App\Models\Published_products as PublishedProduct;
 use App\Http\Requests\StorePublished_productsRequest;
 use App\Http\Requests\UpdatePublished_productsRequest;
 use App\Repositories\PublishedProductsRepository;
@@ -26,6 +26,13 @@ class PublishedProductsController extends Controller
     {
         $products = $this->PublishedProductsRepository->all();
         return response()->json($products);
+    }
+
+    public function search(Request $request)
+    {
+        $search_results = PublishedProduct::search($request->input('query'))->paginateRaw(10);
+
+        return response()->json(['result' => $search_results]);
     }
 
     /**
@@ -53,8 +60,4 @@ class PublishedProductsController extends Controller
         $product = $this->PublishedProductsRepository->find($id);
         return response()->json($product);
     }
-
-    
-
-   
 }
